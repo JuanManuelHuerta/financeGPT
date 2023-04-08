@@ -25,8 +25,8 @@ def model_size(model):
 
 class ConstantLengthDataset(IterableDataset):
     
-    def __init__(self, tokenizer, dataset, seq_length=1024,
-                 num_of_sequences=1024, chars_per_token=3.6,field_name="text"):
+    def __init__(self, tokenizer, dataset, seq_length=512,
+                 num_of_sequences=256, chars_per_token=3.6,field_name="text"):
         self.tokenizer = tokenizer
         self.concat_token_id = tokenizer.eos_token_id
         self.dataset = dataset
@@ -157,7 +157,7 @@ for _, example in tqdm(zip(range(examples), iter(dataset)), total=examples):
 characters_per_token = total_characters / total_tokens
 print(f"Characters per token {characters_per_token}")
 
-config = {"train_batch_size": 12, # 12, was 2
+config = {"train_batch_size": 4, # 12, was 2
           "valid_batch_size": 2, # 12, this is the validation batchsize
           "weight_decay": 0.1,
           "shuffle_buffer": 1000,
