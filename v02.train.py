@@ -12,16 +12,13 @@ from torch.utils.tensorboard import SummaryWriter
 import logging
 import wandb
 import datasets
-
 import transformers
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 from transformers import pipeline, set_seed
-
 from accelerate import Accelerator
 from huggingface_hub import Repository, get_full_repo_name
 from torch.optim import AdamW
 from transformers import get_scheduler
-
 
 def model_size(model):
     return sum(t.numel() for t in model.parameters())
@@ -93,13 +90,13 @@ def log_metrics(step, metrics):
         wandb.log(metrics)
         [tb_writer.add_scalar(k, v, step) for k, v in metrics.items()]
         
-def create_dataloaders(dataset_name,subset,field_name):
+def create_dataloaders(dataset_name,subset,field_name,chars_per_token):
     train_data = load_dataset(dataset_name, subset,split="train")
     train_data = train_data.shuffle(seed=args.seed)
     valid_data = dataset = load_dataset(dataset_name,subset,split="validation")
-    train_dataset = ConstantLengthDataset(tokenizer, train_data,
+    train_dataset = ConstantLengthDataset(tokenizer, train_data, chars_per_token=chars_per_token,
                                           seq_length=args.seq_length,field_name=field_name)
-    valid_dataset = ConstantLengthDataset(tokenizer, valid_data,
+    valid_dataset = ConstantLengthDataset(tokenizer, valid_data, chars_per_token=chars_per_token,
                                           seq_length=args.seq_length,field_name=field_name)    
     train_dataloader=DataLoader(train_dataset, batch_size=args.train_batch_size)
     eval_dataloader=DataLoader(valid_dataset, batch_size=args.valid_batch_size)
@@ -160,15 +157,7 @@ for _, example in tqdm(zip(range(examples), iter(dataset)), total=examples):
 characters_per_token = total_characters / total_tokens
 print(f"Characters per token {characters_per_token}")
 
-#shuffled_dataset = dataset.shuffle(buffer_size=100)
-shuffled_dataset = dataset.shuffle()
-constant_length_dataset = ConstantLengthDataset(tokenizer, shuffled_dataset,num_of_sequences=10)
-dataset_iterator = iter(constant_length_dataset)
-lengths = [len(b) for _, b in zip(range(10), dataset_iterator)]
-print(f"Lengths of the sequences: {lengths}")
-
-# Commented parameters correspond to the small model
-config = {"train_batch_size": 4, # 12, was 2
+config = {"train_batch_size": 12, # 12, was 2
           "valid_batch_size": 2, # 12, this is the validation batchsize
           "weight_decay": 0.1,
           "shuffle_buffer": 1000,
@@ -205,7 +194,7 @@ model.gradient_checkpointing_enable()
 tokenizer = AutoTokenizer.from_pretrained(tokenizer_ckpt)
 
 # Load dataset and dataloader
-train_dataloader, eval_dataloader = create_dataloaders(dataset_name,subset,field_name)
+train_dataloader, eval_dataloader = create_dataloaders(dataset_name,subset,field_name,characters_per_token)
 
 # Prepare the optimizer and learning rate scheduler
 optimizer = AdamW(get_grouped_params(model), lr=args.learning_rate)
